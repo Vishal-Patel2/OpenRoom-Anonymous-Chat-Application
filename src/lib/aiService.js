@@ -2,6 +2,9 @@
 import { db } from './firebase.js';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
+// Load API URL from .env
+const API_URL = import.meta.env.VITE_AI_API_URL;
+
 // AI Bot user details
 export const AI_BOT = {
   id: 'ai-assistant-bot',
@@ -9,12 +12,10 @@ export const AI_BOT = {
   color: 'bg-amber-500', // Distinct color for the AI
 };
 
-
-
 // Function to generate AI response
 export async function generateAIResponse(question) {
   try {
-    const response = await fetch('https://still-lake-1a8f.talaganarajesh25.workers.dev/', {
+    const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -23,12 +24,16 @@ export async function generateAIResponse(question) {
         contents: [
           {
             role: 'user',
-            parts: [{ text: `You are an AI with humor and sarcasm with correct facts. Follow these rules:\n
-                1. Keep responses short and helpful.\n
-                2. Maintain context from previous messages.\n
-                3. Always respond in English text, but adapt the language:\n
-                   - If the user types in Hindi, reply in Hindi but using English script.\n
-                User's message: "${question}"` }]
+            parts: [
+              {
+                text: `You are an AI with humor and sarcasm with correct facts. Follow these rules:\n
+                  1. Keep responses short and helpful.\n
+                  2. Maintain context from previous messages.\n
+                  3. Always respond in English text, but adapt the language:\n
+                     - If the user types in Hindi, reply in Hindi but using English script.\n
+                  User's message: "${question}"`
+              }
+            ]
           }
         ],
         generationConfig: {
@@ -42,7 +47,6 @@ export async function generateAIResponse(question) {
       throw new Error(data.error || 'Failed to generate response from AI.');
     }
 
-    
     return data.candidates?.[0]?.content?.parts?.[0]?.text;
 
   } catch (error) {
@@ -51,12 +55,11 @@ export async function generateAIResponse(question) {
   }
 }
 
-
 // Function to post AI response to the chat
-export async function postAIResponse(question, replyToMessage = null,roomId) {
+export async function postAIResponse(question, replyToMessage = null, roomId) {
   try {
     const aiResponse = await generateAIResponse(question);
-    
+
     const messageData = {
       text: aiResponse,
       nickname: AI_BOT.nickname,
@@ -65,7 +68,7 @@ export async function postAIResponse(question, replyToMessage = null,roomId) {
       color: AI_BOT.color,
       isAI: true // Flag to identify AI messages
     };
-    
+
     // If this is a reply to a specific message
     if (replyToMessage) {
       messageData.replyTo = {
@@ -75,7 +78,7 @@ export async function postAIResponse(question, replyToMessage = null,roomId) {
         userId: replyToMessage.userId
       };
     }
-    
+
     // Add to Firestore
     await addDoc(collection(db, roomId), messageData);
     return true;
